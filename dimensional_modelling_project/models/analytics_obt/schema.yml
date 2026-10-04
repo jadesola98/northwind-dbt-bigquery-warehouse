@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: obt_sales_overview
+    description: "One big table for sales reporting: fact_sales joined to customer, employee and product."
+    columns:
+      - name: order_line_id
+        data_tests: [unique, not_null]
+
+  - name: obt_purchase_overview
+    description: "One big table for purchasing reporting: fact_purchase_order joined to supplier, employee and product."
+    columns:
+      - name: purchase_order_line_id
+        data_tests: [unique, not_null]
+
+  - name: obt_product_inventory
+    description: "One big table for stock reporting: fact_inventory joined to product."
+    columns:
+      - name: inventory_id
+        data_tests: [unique, not_null]

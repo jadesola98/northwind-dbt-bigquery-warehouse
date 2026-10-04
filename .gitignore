@@ -1,0 +1,6 @@
+dbt-env/
+logs/
+**/logs/
+**/target/
+**/dbt_packages/
+*Zone.Identifier

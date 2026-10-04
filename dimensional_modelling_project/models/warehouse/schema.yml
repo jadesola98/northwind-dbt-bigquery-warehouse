@@ -1,0 +1,142 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "One row per customer, deduplicated from the Northwind customer table."
+    columns:
+      - name: customer_id
+        description: "Primary key of the customer."
+        data_tests: [unique, not_null]
+
+  - name: dim_employees
+    description: "One row per employee. Employees take sales orders and create purchase orders."
+    columns:
+      - name: employee_id
+        description: "Primary key of the employee."
+        data_tests: [unique, not_null]
+
+  - name: dim_product
+    description: "One row per product, with the supplier's company name attached. Products with more than one supplier are excluded in staging."
+    columns:
+      - name: product_id
+        description: "Primary key of the product."
+        data_tests: [unique, not_null]
+
+  - name: dim_supplier
+    description: "One row per supplier. Used by fact_purchase_order."
+    columns:
+      - name: supplier_id
+        description: "Primary key of the supplier."
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    description: "Generated calendar with one row per day from 2005-01-01 to 2050-01-01."
+    columns:
+      - name: id
+        description: "Date as a YYYY-MM-DD string."
+        data_tests: [unique, not_null]
+      - name: full_date
+        description: "Date as a DATE value. Join facts to this column."
+        data_tests: [unique, not_null]
+      - name: is_weekend
+        description: "1 for Saturday and Sunday, 0 otherwise."
+        data_tests:
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+
+  - name: fact_sales
+    description: "Sales facts. Grain: one row per sales order line."
+    columns:
+      - name: order_line_id
+        description: "Primary key: the order_details line ID."
+        data_tests: [unique, not_null]
+      - name: order_id
+        description: "The sales order this line belongs to."
+        data_tests: [not_null]
+      - name: customer_id
+        description: "Customer who placed the order."
+        data_tests:
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_id
+      - name: employee_id
+        description: "Employee who took the order."
+        data_tests:
+          - relationships:
+              to: ref('dim_employees')
+              field: employee_id
+      - name: product_id
+        description: "Product sold on this line."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+              config:
+                severity: warn   # products with several suppliers are excluded from dim_product in staging
+      - name: order_date
+        description: "Date the order was placed."
+        data_tests:
+          - relationships:
+              to: ref('dim_date')
+              field: full_date
+      - name: quantity
+        description: "Units sold on this line."
+
+  - name: fact_purchase_order
+    description: "Purchasing facts. Grain: one row per purchase order line. shipping_fee, taxes and payment_amount are order-level values repeated on each line, so don't sum them across lines."
+    columns:
+      - name: purchase_order_line_id
+        description: "Primary key: the purchase_order_details line ID."
+        data_tests: [unique, not_null]
+      - name: purchase_order_id
+        description: "The purchase order this line belongs to."
+        data_tests: [not_null]
+      - name: supplier_id
+        description: "Supplier the order was placed with."
+        data_tests:
+          - relationships:
+              to: ref('dim_supplier')
+              field: supplier_id
+      - name: employee_id
+        description: "Employee who created the purchase order."
+        data_tests:
+          - relationships:
+              to: ref('dim_employees')
+              field: employee_id
+      - name: product_id
+        description: "Product ordered on this line."
+        data_tests:
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+              config:
+                severity: warn   # products with several suppliers are excluded from dim_product in staging
+      - name: creation_date
+        description: "Date the purchase order was created."
+        data_tests:
+          - relationships:
+              to: ref('dim_date')
+              field: full_date
+
+  - name: fact_inventory
+    description: "Inventory movements. Grain: one row per inventory transaction."
+    columns:
+      - name: inventory_id
+        description: "Primary key of the inventory transaction."
+        data_tests: [unique, not_null]
+      - name: product_id
+        description: "Product whose stock moved."
+        data_tests:
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+              config:
+                severity: warn   # products with several suppliers are excluded from dim_product in staging
+      - name: transaction_created_date
+        description: "Date the transaction was created."
+        data_tests:
+          - relationships:
+              to: ref('dim_date')
+              field: full_date

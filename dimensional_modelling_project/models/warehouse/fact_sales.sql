@@ -1,5 +1,8 @@
-with source as(
+-- Grain: one row per sales order line (order_details.id).
+
+with source as (
     select
+        od.id                   as order_line_id,
         od.order_id,
         od.product_id,
         o.customer_id,
@@ -12,22 +15,22 @@ with source as(
         od.date_allocated,
         od.purchase_order_id,
         od.inventory_id,
-        date(o.order_date) as order_date,
+        date(o.order_date)      as order_date,
         o.shipped_date,
         o.paid_date,
-        current_timestamp() as insertion_timestamp,
+        current_timestamp()     as insertion_timestamp
     from {{ ref('stg_orders') }} o
-    left join {{ ref('stg_order_details') }} od
-    on od.order_id = o.id
-    where od.order_id is not null
+    inner join {{ ref('stg_order_details') }} od
+        on od.order_id = o.id
 ),
+
 unique_source as (
-    select *,
-            row_number() over(partition by customer_id, employee_id, order_id, product_id, shipper_id, purchase_order_id, shipper_id, order_date) as row_number
+    select
+        *,
+        row_number() over (partition by order_line_id order by order_date desc) as row_number
     from source
 )
-select * 
-except
-       (row_number),
+
+select * except (row_number)
 from unique_source
 where row_number = 1
